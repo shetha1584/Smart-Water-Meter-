@@ -1,0 +1,85 @@
+#include "DHT.h"
+
+#define DHTPIN 2        
+#define DHTTYPE DHT11 
+#define MOISTURE_SIGNAL A0
+#define FLOW_SENSOR_PIN 7
+#define SOLENOID_PIN 3 // Define the pin connected to the relay module
+
+DHT dht(DHTPIN, DHTTYPE);
+volatile int flowPulseCount;
+float flowRate;
+unsigned int flowMilliLitres;
+unsigned long totalMilliLitres;
+unsigned long oldTime;
+unsigned long interval = 5000; // Set the interval in milliseconds (e.g., 5000 for 5 seconds)
+bool isFlowing = false; // Flag to track if water flow is detected
+
+void setup() {
+  Serial.begin(9600);
+  dht.begin();
+  pinMode(SOLENOID_PIN, OUTPUT); // Set the solenoid pin as an output
+  attachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN), pulseCounter, FALLING);
+}
+
+void loop() {
+  unsigned long currentTime = millis();
+  
+  if (currentTime - oldTime >= interval) {
+    // Reading DHT11 sensor
+    float temperature = dht.readTemperature();  
+    float humidity = dht.readHumidity();        
+
+    // Check if any reads failed and exit early (to try again).
+    if (isnan(temperature) || isnan(humidity)) {
+      Serial.println("Failed to read from DHT sensor!");
+    } else {
+      Serial.print("Temperature: ");
+      Serial.print(temperature);
+      Serial.println(" °C");
+      Serial.print("Humidity: ");
+      Serial.print(humidity);
+      Serial.println(" %");
+    }
+    
+    // Reading soil moisture level
+    int moisture = analogRead(MOISTURE_SIGNAL);
+    Serial.print("Soil moisture level: ");
+    Serial.println(moisture);
+
+    // Calculate flow rate
+    flowRate = ((1000.0 / (float)interval) * (float)flowPulseCount) / 7.5;
+    flowMilliLitres = (flowRate / 60) * 1000;
+    
+    // If flow rate is above a threshold, consider water flow is detected
+    if (flowRate > 0.1) {
+      isFlowing = true;
+      totalMilliLitres += flowMilliLitres;
+      digitalWrite(SOLENOID_PIN, HIGH); // Turn on the solenoid
+    } else {
+      isFlowing = false;
+      digitalWrite(SOLENOID_PIN, LOW); // Turn off the solenoid
+    }
+    
+    // Print flow rate and total flow only when water flow is detected
+    if (isFlowing) {
+      Serial.print("Flow rate: ");
+      Serial.print(flowRate);
+      Serial.print(" L/min\t");
+      Serial.print("Total flow: ");
+      Serial.print(totalMilliLitres);
+      Serial.println(" mL");
+    } else {
+      Serial.println("Water flow stopped");
+    }
+
+    oldTime = currentTime;
+    flowPulseCount = 0;
+  }
+}
+
+// Function to count pulses
+void pulseCounter() {
+  flowPulseCount++;
+}
+

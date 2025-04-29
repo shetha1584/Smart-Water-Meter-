@@ -1,0 +1,27 @@
+char caracter;
+int temperature = 0;
+int humidity = 0;
+String tempera_humidity;
+
+void setup() { 
+  Serial.begin(9600);
+}
+
+void loop() { 
+  temperature = random(20,40);
+  humidity = random(50,95);
+  delay(500);
+ 
+  if(Serial.available()) {
+  caracter = Serial.read();
+  
+    if(caracter == 'T'){Serial.println(temperature);}
+    if(caracter == 'H'){Serial.println(humidity);} 
+    if(caracter == 'D'){ 
+    tempera_humidity = (String) temperature + "," + (String) humidity;
+    Serial.println(tempera_humidity);
+    }
+  } 
+
+} 
+
